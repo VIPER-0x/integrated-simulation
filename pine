@@ -1,0 +1,94 @@
+//@version=6  
+
+indicator('Integrated Simulation with Table', overlay = true, max_bars_back = 499)
+
+// Initialize larger arrays for more detailed ranges
+var array<float> t_upper = array.new_float(10)  // 1 to 10 for upper internal range
+var array<float> t_lower = array.new_float(100) // 1 to 100 for lower internal range
+var array<float> t_external = array.new_float(500) // For external ranges 100 to 240 and 0 to -260
+
+// Initialize arrays with progressive values
+f_init_arrays() =>
+    // Upper internal range (1 to 10)
+    for i = 0 to 9
+        array.set(t_upper, i, 1.0 + i * (9.0/9))
+    
+    // Lower internal range (1 to 100)
+    for i = 0 to 99
+        array.set(t_lower, i, 1.0 + i * (99.0/99))
+    
+    // External range values
+    for i = 0 to 499
+        if i < 140  // For 100 to 240
+            array.set(t_external, i, 100.0 + i)
+        else        // For 0 to -260
+            array.set(t_external, i, 0.0 - (i - 140))
+
+if bar_index == 0
+    f_init_arrays()
+
+// Create a table to display results
+var table resultsTable = table.new(position.bottom_right, 50, 50, border_color = color.white, bgcolor = color.new(color.black, 70))
+
+// Table headers
+if bar_index == 0
+    table.cell(resultsTable, 0, 0, 'Range Type', text_color = color.white, bgcolor = color.new(color.blue, 70))
+    table.cell(resultsTable, 0, 1, 'Value', text_color = color.white, bgcolor = color.new(color.blue, 70))
+    table.cell(resultsTable, 0, 2, 'Level', text_color = color.white, bgcolor = color.new(color.blue, 70))
+
+Calculate() =>
+    position_x = 1.0 + 0.5 * bar_index * 0.1
+    [position_x]
+
+[position_x] = Calculate()
+// Define input parameters  
+numCandles =math.floor( position_x)
+
+// Calculate the highest high and lowest low within the specified number of candles  
+hh = ta.highest(numCandles)  
+ll = ta.lowest(numCandles)  
+
+// Define swing points  
+var float swingHigh = na  
+var float swingLow = na  
+var float lastSwingHigh = na  
+var float lastSwingLow = na  
+var line la = na  
+var line lb = na  
+var line lh = na  
+var line LX1 = na  
+var line LX2 = na  
+
+// Initialize table  
+var table rangeTable = table.new(position = position.bottom_right, columns = 2, rows = 1, bgcolor = color.new(color.gray, 90), border_width = 1)  
+table.cell(rangeTable, column = 0, row = 0, text = "Range Value", bgcolor = color.new(color.blue, 90), text_color = color.white)  
+
+// Calculate swing highs and lows  
+if high > hh[1] and high > high[3]  
+    lastSwingHigh := swingHigh  
+    swingHigh := high  
+    line.delete(la)  
+    la := line.new(x1 = bar_index, y1 = swingHigh, x2 = bar_index + numCandles, y2 = swingHigh, color = color.green, width = 2, style = line.style_dotted)  
+
+if low < ll[1] and low < low[3]  
+    lastSwingLow := swingLow  
+    swingLow := low  
+    line.delete(lb)  
+    lb := line.new(x1 = bar_index, y1 = swingLow, x2 = bar_index + numCandles, y2 = swingLow, color = color.red, width = 2, style = line.style_dotted)  
+
+// Calculate range  
+RANGE_CALC = math.max(swingHigh, swingLow) - math.min(swingHigh, swingLow)  
+
+// Update table with range value  
+table.cell(rangeTable, column = 1, row = 0, text = str.tostring(RANGE_CALC, format.percent), bgcolor = color.new(color.gray, 90), text_color = color.white)  
+
+// Calculate levels  
+LEVEL_23 = (0.23 * RANGE_CALC) + swingLow  
+LEVEL_61 = (0.61 * RANGE_CALC) + swingLow  
+
+// Draw lines for levels on the last bar  
+if barstate.islast  
+    line.delete(LX1)  
+    LX1 := line.new(x1 = time[numCandles], y1 = LEVEL_23, x2 = time + numCandles, y2 = LEVEL_23, color = color.orange, width = 2, style = line.style_dashed,xloc=xloc.bar_time)  
+    line.delete(LX2)  
+    LX2 := line.new(x1 =  time[numCandles], y1 = LEVEL_61, x2 = time + numCandles, y2 = LEVEL_61, color = color.purple, width = 2, style = line.style_dashed,xloc=xloc.bar_time)
